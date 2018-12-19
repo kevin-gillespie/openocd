@@ -507,8 +507,10 @@ static int max32xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 	/* Prepare to issue flash operation */
 	retval = max32xxx_flash_op_pre(bank);
 
-	if (retval != ERROR_OK)
+	if (retval != ERROR_OK) {
+		max32xxx_flash_op_post(bank);
 		return retval;
+	}
 
 	if (remaining >= 4) {
 		/* try using a block write */
@@ -553,6 +555,7 @@ static int max32xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 
 			if (retry <= 0) {
 				LOG_ERROR("Timed out waiting for flash write @ 0x%08x", address);
+				max32xxx_flash_op_post(bank);
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
 
@@ -586,6 +589,7 @@ static int max32xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 
 			if (retry <= 0) {
 				LOG_ERROR("Timed out waiting for flash write @ 0x%08x", address);
+				max32xxx_flash_op_post(bank);
 				return ERROR_FLASH_OPERATION_FAILED;
 			}
 
@@ -624,6 +628,7 @@ static int max32xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 
 		if (retry <= 0) {
 			LOG_ERROR("Timed out waiting for flash write @ 0x%08x", address);
+			max32xxx_flash_op_post(bank);
 			return ERROR_FLASH_OPERATION_FAILED;
 		}
 	}
@@ -670,6 +675,7 @@ static int max32xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 
 		if (retry <= 0) {
 			LOG_ERROR("Timed out waiting for flash write @ 0x%08x", address);
+			max32xxx_flash_op_post(bank);
 			return ERROR_FLASH_OPERATION_FAILED;
 		}
 	}
