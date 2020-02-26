@@ -167,7 +167,11 @@ void algo_write(uint8_t *work_start, uint8_t *work_end, uint32_t len, uint32_t a
             if (MXC_FLC->intr & MXC_F_FLC_INTR_AF) {
                 MXC_FLC->intr &= ~MXC_F_FLC_INTR_AF;
                 #ifndef ALGO_TEST
+                #ifdef __riscv
+                __asm("ebreak\n");
+                #else
                 __asm("bkpt\n");
+                #endif
                 #else
                 printf(" > Error writing to flash\n");
                 return;
@@ -276,8 +280,11 @@ void algo_write(uint8_t *work_start, uint8_t *work_end, uint32_t len, uint32_t a
             if (MXC_FLC->intr & MXC_F_FLC_INTR_AF) {
                 MXC_FLC->intr &= ~MXC_F_FLC_INTR_AF;
                 #ifndef ALGO_TEST
-                __asm("bkpt\n");
+                #ifdef __riscv
+                __asm("ebreak\n");
                 #else
+                __asm("bkpt\n");
+                #endif
                 printf(" > Error writing to flash\n");
                 return;
                 #endif
@@ -286,7 +293,11 @@ void algo_write(uint8_t *work_start, uint8_t *work_end, uint32_t len, uint32_t a
     }
        
     #ifndef ALGO_TEST
+    #ifdef __riscv
+    __asm("ebreak\n");
+    #else
     __asm("bkpt\n");
+    #endif
     #else
     printf(" > algo_write returning\n");
     return;
