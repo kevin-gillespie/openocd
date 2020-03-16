@@ -8,7 +8,7 @@ PREFIX=arm-none-eabi
 CFLAGS=-mthumb -mcpu=cortex-m4 -Wa,-mimplicit-it=thumb
 else
 PREFIX=riscv-none-embed
-CFLAGS=-march=rv32imc -mabi=ilp32 -Wall
+CFLAGS=-march=rv32imc -mabi=ilp32 -Wall -g3 -ggdb -DDEBUG -O0
 endif
 
 all: $(TARGET).inc
@@ -27,9 +27,7 @@ all: $(TARGET).inc
 	$(BIN2C) < $< > $@
 
 %.dasm: %.o
-	$(PREFIX)-objdump -d -s ${<} > ${TARGET}.dasm
-
+	$(PREFIX)-objdump -S ${<} > ${TARGET}.dasm
 
 clean:
 	rm -rf $(TARGET).bin $(TARGET).elf $(TARGET).o $(TARGET).dasm $(TARGET).inc
-

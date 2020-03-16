@@ -34,7 +34,7 @@
 
 /***** Includes *****/
 #ifdef ALGO_TEST
-#include "mxc_config.h"
+#include "mxc_device.h"
 #endif
 
 #include "tpu_regs.h"
@@ -61,8 +61,8 @@
     temp8 = **read_ptr;                                                         \
                                                                                 \
     /* Increment and wrap around the read pointer */                            \
-    if ((*read_ptr + 1) >= (uint8_t*)(work_end - 8 - 256)) {                                          \
-        *read_ptr = (uint8_t *)(work_start + 8);                                       \
+    if ((*read_ptr + 1) >= (uint8_t*)(work_end - 8 - 256)) {                    \
+        *read_ptr = (uint8_t *)(work_start + 8);                                \
     } else {                                                                    \
         (*read_ptr)++;                                                          \
     }                                                                           \

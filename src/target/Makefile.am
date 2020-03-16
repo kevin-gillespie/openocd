@@ -5,6 +5,7 @@ OOCD_TRACE_FILES =
 endif
 
 %C%_libtarget_la_LIBADD = %D%/openrisc/libopenrisc.la \
+	%D%/rvmax/librvmax.la \
 	%D%/riscv/libriscv.la
 
 
@@ -255,3 +256,4 @@ ARC_SRC = \
 
 include %D%/openrisc/Makefile.am
 include %D%/riscv/Makefile.am
+include %D%/rvmax/Makefile.am

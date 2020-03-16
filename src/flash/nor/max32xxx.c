@@ -23,6 +23,8 @@
 #include "imp.h"
 #include <target/algorithm.h>
 #include <target/armv7m.h>
+#include <target/target.h>
+#include <target/target_type.h>
 
 /* Register addresses */
 #define FLC_ADDR				0x00000000
@@ -85,15 +87,15 @@
 
 #define ARM_PID_DEFAULT_CM3		0x0000B4C3
 #define ARM_PID_DEFAULT_CM4		0x0000B4C4
-#define MAX326XX_ID				0x0000004D    
+#define MAX326XX_ID				0x0000004D
 
 #define OPTIONS_128             0x01 /* Perform 128 bit flash writes */
 #define OPTIONS_ENC             0x02 /* Encrypt the flash contents */
 #define OPTIONS_AUTH            0x04 /* Authenticate the flash contents */
 #define OPTIONS_COUNT           0x08 /* Add counter values to authentication */
 #define OPTIONS_INTER           0x10 /* Interleave the authentication and count values*/
-#define OPTIONS_RELATIVE_XOR    0x20 /* Only XOR the offset of the address when encrypting */    
-#define OPTIONS_KEYSIZE         0x40 /* Use a 256 bit KEY */    
+#define OPTIONS_RELATIVE_XOR    0x20 /* Only XOR the offset of the address when encrypting */
+#define OPTIONS_KEYSIZE         0x40 /* Use a 256 bit KEY */
 
 static int max32xxx_mass_erase(struct flash_bank *bank);
 
@@ -108,8 +110,12 @@ struct max32xxx_flash_bank {
 	unsigned int options;
 };
 
-static const uint8_t write_code[] = {
-#include "../../contrib/loaders/flash/max32xxx/max32xxx_write.inc"
+static const uint8_t write_code_arm[] = {
+#include "../../contrib/loaders/flash/max32xxx/max32xxx_write_arm.inc"
+};
+
+static const uint8_t write_code_riscv[] = {
+#include "../../contrib/loaders/flash/max32xxx/max32xxx_write_riscv.inc"
 };
 
 FLASH_BANK_COMMAND_HANDLER(max32xxx_flash_bank_command)
@@ -311,7 +317,7 @@ static int max32xxx_erase(struct flash_bank *bank, unsigned int first,
 
 		if (retry <= 0) {
 			LOG_ERROR("Timed out waiting for flash page erase @ 0x%08x",
-				banknr * info->sector_size);
+			          banknr * info->sector_size);
 			return ERROR_FLASH_OPERATION_FAILED;
 		}
 
@@ -381,10 +387,11 @@ static int max32xxx_protect(struct flash_bank *bank, int set,
 }
 
 static int max32xxx_write_block(struct flash_bank *bank, const uint8_t *buffer,
-	uint32_t offset, uint32_t len)
+                                uint32_t offset, uint32_t len)
 {
 	struct max32xxx_flash_bank *info = bank->driver_priv;
 	struct target *target = bank->target;
+	const char* target_type_name = (const char*)target->type->name;
 	uint32_t buffer_size = 16384;
 	struct working_area *source;
 	struct working_area *write_algorithm;
@@ -394,12 +401,25 @@ static int max32xxx_write_block(struct flash_bank *bank, const uint8_t *buffer,
 	int retval = ERROR_OK;
 	/* power of two, and multiple of word size */
 	static const unsigned buf_min = 128;
+	uint8_t* write_code;
+	int write_code_size;
+
+
+	if(strcmp(target_type_name, "cortex_m") == 0) {
+		write_code = (uint8_t*)write_code_arm;
+		write_code_size = sizeof(write_code_arm);
+	} else {
+		/* TODO: RISCV algorithm not currently working */
+		write_code = (uint8_t*)write_code_riscv;
+		write_code_size = sizeof(write_code_riscv);
+		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
+	}
 
 	LOG_DEBUG("max32xxx_write_block bank=%p buffer=%p offset=%08" PRIx32 " len=%08" PRIx32 "",
-		bank, buffer, offset, len);
+	          bank, buffer, offset, len);
 
 	/* flash write code */
-	if (target_alloc_working_area(target, sizeof(write_code), &write_algorithm) != ERROR_OK) {
+	if (target_alloc_working_area(target, write_code_size, &write_algorithm) != ERROR_OK) {
 		LOG_DEBUG("no working area for block memory writes");
 		return ERROR_TARGET_RESOURCE_NOT_AVAILABLE;
 	}
@@ -418,18 +438,28 @@ static int max32xxx_write_block(struct flash_bank *bank, const uint8_t *buffer,
 		}
 
 		LOG_DEBUG("retry target_alloc_working_area(%s, size=%u)",
-			target_name(target), (unsigned) buffer_size);
+		          target_name(target), (unsigned) buffer_size);
 	}
 
-	target_write_buffer(target, write_algorithm->address, sizeof(write_code),
-		write_code);
+	target_write_buffer(target, write_algorithm->address, write_code_size,
+	                    write_code);
 
 	armv7m_info.common_magic = ARMV7M_COMMON_MAGIC;
 	armv7m_info.core_mode = ARM_MODE_THREAD;
-	init_reg_param(&reg_params[0], "r0", 32, PARAM_OUT);
-	init_reg_param(&reg_params[1], "r1", 32, PARAM_OUT);
-	init_reg_param(&reg_params[2], "r2", 32, PARAM_OUT);
-	init_reg_param(&reg_params[3], "r3", 32, PARAM_OUT);
+
+	/* TODO: a0-a3 for RISCV */
+
+	if(strcmp(target_type_name, "cortex_m") == 0) {
+		init_reg_param(&reg_params[0], "r0", 32, PARAM_OUT);
+		init_reg_param(&reg_params[1], "r1", 32, PARAM_OUT);
+		init_reg_param(&reg_params[2], "r2", 32, PARAM_OUT);
+		init_reg_param(&reg_params[3], "r3", 32, PARAM_OUT);
+	} else {
+		init_reg_param(&reg_params[0], "a0", 32, PARAM_OUT);
+		init_reg_param(&reg_params[1], "a1", 32, PARAM_OUT);
+		init_reg_param(&reg_params[2], "a2", 32, PARAM_OUT);
+		init_reg_param(&reg_params[3], "a3", 32, PARAM_OUT);
+	}
 	init_reg_param(&reg_params[4], "sp", 32, PARAM_OUT);
 
 	buf_set_u32(reg_params[0].value, 0, 32, source->address);
@@ -446,7 +476,7 @@ static int max32xxx_write_block(struct flash_bank *bank, const uint8_t *buffer,
 
 	/* leave room for stack, 32-bit options and encryption buffer */
 	retval = target_run_flash_async_algorithm(target, buffer, len, 1, 2, mem_param,
-		5, reg_params, source->address, (source->size - 8 - 256), write_algorithm->address, 0, &armv7m_info);
+	         5, reg_params, source->address, (source->size - 8 - 256), write_algorithm->address, 0, &armv7m_info);
 
 	if (retval == ERROR_FLASH_OPERATION_FAILED)
 		LOG_ERROR("error %d executing max32xxx flash write algorithm", retval);
@@ -457,12 +487,12 @@ static int max32xxx_write_block(struct flash_bank *bank, const uint8_t *buffer,
 	destroy_reg_param(&reg_params[1]);
 	destroy_reg_param(&reg_params[2]);
 	destroy_reg_param(&reg_params[3]);
-    destroy_reg_param(&reg_params[4]);
+	destroy_reg_param(&reg_params[4]);
 	return retval;
 }
 
 static int max32xxx_write(struct flash_bank *bank, const uint8_t *buffer,
-	uint32_t offset, uint32_t count)
+                          uint32_t offset, uint32_t count)
 {
 	struct max32xxx_flash_bank *info = bank->driver_priv;
 	struct target *target = bank->target;
@@ -478,7 +508,7 @@ static int max32xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 	}
 
 	LOG_DEBUG("max32xxx_write bank=%p buffer=%p offset=%08" PRIx32 " count=%08" PRIx32 "",
-		bank, buffer, offset, count);
+	          bank, buffer, offset, count);
 
 	if (!info->probed)
 		return ERROR_FLASH_BANK_NOT_PROBED;
@@ -639,9 +669,10 @@ static int max32xxx_write(struct flash_bank *bank, const uint8_t *buffer,
 		target_write_u32(target, info->flc_base + FLC_CN, flash_cn);
 
 		uint8_t last_words[16] = {0xFF, 0xFF, 0xFF, 0xFF,
-			0xFF, 0xFF, 0xFF, 0xFF,
-			0xFF, 0xFF, 0xFF, 0xFF,
-			0xFF, 0xFF, 0xFF, 0xFF};
+		                          0xFF, 0xFF, 0xFF, 0xFF,
+		                          0xFF, 0xFF, 0xFF, 0xFF,
+		                          0xFF, 0xFF, 0xFF, 0xFF
+		                         };
 
 		int i = 0;
 
@@ -693,6 +724,7 @@ static int max32xxx_probe(struct flash_bank *bank)
 {
 	struct max32xxx_flash_bank *info = bank->driver_priv;
 	struct target *target = bank->target;
+	const char* target_type_name = (const char*)target->type->name;
 	uint32_t arm_id[2];
 	uint16_t arm_pid;
 
@@ -715,18 +747,22 @@ static int max32xxx_probe(struct flash_bank *bank)
 
 	/* Probe to determine if this part is in the max326xx family */
 	info->max326xx = 0;
-	target_read_u32(target, ARM_PID_REG, &arm_id[0]);
-	target_read_u32(target, ARM_PID_REG+4, &arm_id[1]);
-	arm_pid = (arm_id[1] << 8) + arm_id[0];
-	LOG_DEBUG("arm_pid = 0x%x", arm_pid);
 
-	if ((arm_pid == ARM_PID_DEFAULT_CM3) || arm_pid == ARM_PID_DEFAULT_CM4) {
-		uint32_t max326xx_id;
-		target_read_u32(target, MAX326XX_ID_REG, &max326xx_id);
-		LOG_DEBUG("max326xx_id = 0x%x", max326xx_id);
-		max326xx_id = ((max326xx_id & 0xFF000000) >> 24);
-		if (max326xx_id == MAX326XX_ID)
-			info->max326xx = 1;
+	/* If this is an arm core we're debugging */
+	if(strcmp(target_type_name, "cortex_m") == 0) {
+		target_read_u32(target, ARM_PID_REG, &arm_id[0]);
+		target_read_u32(target, ARM_PID_REG+4, &arm_id[1]);
+		arm_pid = (arm_id[1] << 8) + arm_id[0];
+		LOG_DEBUG("arm_pid = 0x%x", arm_pid);
+
+		if ((arm_pid == ARM_PID_DEFAULT_CM3) || arm_pid == ARM_PID_DEFAULT_CM4) {
+			uint32_t max326xx_id;
+			target_read_u32(target, MAX326XX_ID_REG, &max326xx_id);
+			LOG_DEBUG("max326xx_id = 0x%x", max326xx_id);
+			max326xx_id = ((max326xx_id & 0xFF000000) >> 24);
+			if (max326xx_id == MAX326XX_ID)
+				info->max326xx = 1;
+		}
 	}
 	LOG_DEBUG("info->max326xx = %d", info->max326xx);
 
@@ -972,10 +1008,10 @@ COMMAND_HANDLER(max32xxx_handle_protection_check_command)
 	LOG_WARNING("s:<sector number> a:<address> p:<protection bit>");
 	for (unsigned i = 0; i < bank->num_sectors; i += 4) {
 		LOG_WARNING("s:%03d a:0x%06x p:%d | s:%03d a:0x%06x p:%d | s:%03d a:0x%06x p:%d | s:%03d a:0x%06x p:%d",
-			(i+0), (i+0)*info->sector_size, bank->sectors[(i+0)].is_protected,
-			(i+1), (i+1)*info->sector_size, bank->sectors[(i+1)].is_protected,
-			(i+2), (i+2)*info->sector_size, bank->sectors[(i+2)].is_protected,
-			(i+3), (i+3)*info->sector_size, bank->sectors[(i+3)].is_protected);
+		            (i+0), (i+0)*info->sector_size, bank->sectors[(i+0)].is_protected,
+		            (i+1), (i+1)*info->sector_size, bank->sectors[(i+1)].is_protected,
+		            (i+2), (i+2)*info->sector_size, bank->sectors[(i+2)].is_protected,
+		            (i+3), (i+3)*info->sector_size, bank->sectors[(i+3)].is_protected);
 	}
 
 	return ERROR_OK;
