@@ -667,6 +667,7 @@ static int rvmax_resume(struct target *target, int current,
            int debug_execution)
 {
   LOG_DEBUG("- %08llx %08x %08x",address,current, debug_execution);
+
   struct rvmax_common *rvmax = target_to_rvmax(target);
   struct rvmax_du *du_core = rvmax_to_du(rvmax);
   int retval = ERROR_OK;

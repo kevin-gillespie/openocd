@@ -498,7 +498,9 @@ static int adbg_wb_burst_write(struct rvmax_jtag *jtag_info, const uint8_t *data
   int retry_full_crc = 0;
   int retval;
   uint8_t opcode;
-
+  
+  uint32_t data32;
+  memcpy(&data32, data, sizeof(uint32_t));
   // LOG_DEBUG("Doing burst write, word size %d, word count %d," "start address 0x%08lx, data %08x", size, count, start_address,(*((uint32_t*)data))&((1<<size*8)-1));
   // LOG_DEBUG("%08x",*((uint32_t*)data));
   /* Select the appropriate opcode */
