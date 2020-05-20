@@ -666,7 +666,7 @@ static int rvmax_resume(struct target *target, int current,
            target_addr_t address, int handle_breakpoints,
            int debug_execution)
 {
-  LOG_DEBUG("- %08llx %08x %08x",address,current, debug_execution);
+  // LOG_DEBUG("- %08llx %08x %08x",address,current, debug_execution);
 
   struct rvmax_common *rvmax = target_to_rvmax(target);
   struct rvmax_du *du_core = rvmax_to_du(rvmax);
@@ -698,7 +698,7 @@ static int rvmax_resume(struct target *target, int current,
 static int rvmax_step(struct target *target, int current,
          target_addr_t address, int handle_breakpoints)
 {
-  LOG_DEBUG("- %08llx %08x",address,current);
+  // LOG_DEBUG("- %08llx %08x",address,current);
 
   struct rvmax_common *rvmax = target_to_rvmax(target);
   struct rvmax_du *du_core = rvmax_to_du(rvmax);
