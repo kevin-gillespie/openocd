@@ -22,7 +22,7 @@ jobs:
         if: ${{ always() }}
         run: |
           python3 /home/btm-ci/Workspace/Resource_Share/Resource_Share.py -l -t 600 /home/btm-ci/Workspace/Resource_Share/max32570_0.txt
-    
+
   build-test:
     # The type of runner that the job will run on
     runs-on: [ self-hosted, btm-ci ]
@@ -38,7 +38,7 @@ jobs:
 
       - name: Build
         run: |
-          # Build OpenOCD          
+          # Build OpenOCD
           ./bootstrap
           ./configure --enable-cmsis-dap --enable-jlink --enable-ftdi
           make clean

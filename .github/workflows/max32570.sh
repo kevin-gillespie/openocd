@@ -11,7 +11,8 @@ git checkout tcl/target/${TARGET_CFG}
 sed -i "s/set QSPI_ENABLE 0/set QSPI_ENABLE 1/g" tcl/target/${TARGET_CFG}
 
 # Test 1: Start a simple OpenOCD session
-./src/openocd -f tcl/interface/cmsis-dap.cfg -f tcl/target/${TARGET_CFG} -s tcl  -c "cmsis_dap_serial  ${CMSIS_DAP_ID}" -c "init; reset halt; exit"
+./src/openocd -f tcl/interface/cmsis-dap.cfg -f tcl/target/${TARGET_CFG} -s tcl  \
+    -c "cmsis_dap_serial  ${CMSIS_DAP_ID}" -c "init; reset halt; exit"
 
 # Test 2: Mass erase
 ./src/openocd -f tcl/interface/cmsis-dap.cfg -f tcl/target/${TARGET_CFG} -s tcl  \
@@ -29,8 +30,8 @@ export LEN_MOD=0x10000
 $HEXGEN $ADDR_BASE $ADDR_MOD $LEN $LEN_MOD ${TARGET}_rand.hex
 ./src/openocd -f tcl/interface/cmsis-dap.cfg -f tcl/target/${TARGET_CFG} -s tcl  \
     -c "cmsis_dap_serial  ${CMSIS_DAP_ID}" -c "init; program ${TARGET}_rand.hex verify exit "
-    
-# Test 4: Program and verify a file to the second flash bank 
+
+# Test 4: Program and verify a file to the second flash bank
 export ADDR_BASE=0x10080000
 export ADDR_MOD=0x30000
 export LEN=0x10000
@@ -38,7 +39,7 @@ export LEN_MOD=0x10000
 $HEXGEN $ADDR_BASE $ADDR_MOD $LEN $LEN_MOD ${TARGET}_rand.hex
 ./src/openocd -f tcl/interface/cmsis-dap.cfg -f tcl/target/${TARGET_CFG} -s tcl  \
     -c "cmsis_dap_serial  ${CMSIS_DAP_ID}" -c "init; program ${TARGET}_rand.hex verify exit "
-    
+
 # Test 5: Program and verify a file to the QSPI bank
 export ADDR_BASE=0x08000000
 export ADDR_MOD=0x30000
@@ -47,7 +48,7 @@ export LEN_MOD=0x1000
 $HEXGEN $ADDR_BASE $ADDR_MOD $LEN $LEN_MOD ${TARGET}_rand.hex
 ./src/openocd -f tcl/interface/cmsis-dap.cfg -f tcl/target/${TARGET_CFG} -s tcl  \
     -c "cmsis_dap_serial  ${CMSIS_DAP_ID}" -c "init; program ${TARGET}_rand.hex verify exit "
-    
+
 # Test 6: Program across multiple internal flash banks
 export ADDR_BASE=0x10000000
 export ADDR_MOD=0x0
@@ -104,14 +105,14 @@ sed -i "s/set QSPI_OPTIONS 0x26/set QSPI_OPTIONS 0x22/g" tcl/target/${TARGET_CFG
 set +e
 ./src/openocd -f tcl/interface/cmsis-dap.cfg -f tcl/target/${TARGET_CFG} -s tcl  \
   -c "cmsis_dap_serial  ${CMSIS_DAP_ID}" -c "init; reset halt; flash verify_image ${TARGET}_rand.hex; exit "
- 
+
 # Check the return value to make sure we received an error
 if [ "$?" -ne "1" ]
 then
     exit 1
 fi
 set -e
- 
+
 # Revert the options to disable encryption
 sed -i "s/set QSPI_OPTIONS 0x22/set QSPI_OPTIONS 0x0/g" tcl/target/${TARGET_CFG}
 
@@ -119,7 +120,7 @@ sed -i "s/set QSPI_OPTIONS 0x22/set QSPI_OPTIONS 0x0/g" tcl/target/${TARGET_CFG}
 set +e
 ./src/openocd -f tcl/interface/cmsis-dap.cfg -f tcl/target/${TARGET_CFG} -s tcl  \
   -c "cmsis_dap_serial  ${CMSIS_DAP_ID}" -c "init; reset halt; flash verify_image ${TARGET}_rand.hex; exit "
- 
+
 # Check the return value to make sure we received an error
 if [ "$?" -ne "1" ]
 then
