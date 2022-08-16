@@ -1,0 +1,56 @@
+name: max32570
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "master" branch
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  lock:
+    # The type of runner that the job will run on
+    runs-on: [ self-hosted, btm-ci ]
+     # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - name: Lock Resources
+        if: ${{ always() }}
+        run: |
+          python3 /home/btm-ci/Workspace/Resource_Share/Resource_Share.py -l -t 600 /home/btm-ci/Workspace/Resource_Share/max32570_0.txt
+    
+  build-test:
+    # The type of runner that the job will run on
+    runs-on: [ self-hosted, btm-ci ]
+    needs: [ lock ] # Only run if the lock was successful
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+        with:
+          # Update the submodules below, doing so here will convert ssh to https
+          submodules: false
+
+      - name: Build
+        run: |
+          # Build OpenOCD          
+          ./bootstrap
+          ./configure --enable-cmsis-dap --enable-jlink --enable-ftdi
+          make clean
+          make all -j8
+
+      - name: Test
+        run: |
+          bash -ex .github/workflows/max32570.sh
+
+      # Unlock even when cancelled or failed
+      - name: unlock
+        if: always()
+        run: |
+          python3 /home/btm-ci/Workspace/Resource_Share/Resource_Share.py /home/btm-ci/Workspace/Resource_Share/max32570_0.txt
+
